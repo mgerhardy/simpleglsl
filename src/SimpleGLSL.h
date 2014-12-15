@@ -20,7 +20,9 @@ namespace glsl {
 #define FRAGMENT_POSTFIX "_fs.glsl"
 #endif
 
+#ifndef MAX_SHADER_VAR_NAME
 #define MAX_SHADER_VAR_NAME 128
+#endif
 
 class CheckErrorState {
 protected:
@@ -153,9 +155,9 @@ public:
 		ctx_glVertexAttrib4f = _glVertexAttrib4f;
 	}
 
-	virtual std::string loadShaderFile(const std::string& filename) = 0;
+	virtual std::string loadShaderFile(const std::string& filename) const = 0;
 
-private:
+protected:
 	GLuint (*ctx_glCreateShader)(GLenum type);
 	void (*ctx_glDeleteShader)(GLuint id);
 	void (*ctx_glShaderSource)(GLuint id, GLuint count, const GLchar **sources, GLuint *len);
@@ -264,7 +266,7 @@ protected:
 		}
 	}
 
-	std::string getSource(ShaderType shaderType, const std::string& buffer) {
+	std::string getSource(ShaderType shaderType, const std::string& buffer) const {
 		std::string src;
 #ifdef GL_ES_VERSION_2_0
 		src.append("#version 120\n");
@@ -288,7 +290,7 @@ protected:
 				src.append(c, 1);
 				continue;
 			}
-			if (strncmp(include.c_str(), c, include.length())) {
+			if (::strncmp(include.c_str(), c, include.length())) {
 				src.append(c, 1);
 				continue;
 			}
@@ -322,7 +324,6 @@ protected:
 
 	void createProgramFromShaders() {
 		checkError();
-		GLint status;
 		_program = _ctx->ctx_glCreateProgram();
 		checkError();
 
@@ -334,6 +335,7 @@ protected:
 		checkError();
 
 		_ctx->ctx_glLinkProgram(_program);
+		GLint status;
 		_ctx->ctx_glGetProgramiv(_program, GL_LINK_STATUS, &status);
 		checkError();
 		if (status == GL_TRUE)
@@ -380,7 +382,7 @@ public:
 
 			std::unique_ptr < GLchar > strInfoLog(new GLchar[infoLogLength + 1]);
 			_ctx->ctx_glGetShaderInfoLog(_shader[shaderType], infoLogLength, nullptr, strInfoLog);
-			std::string errorLog(strInfoLog, static_cast<std::size_t>(infoLogLength));
+			const std::string errorLog(strInfoLog, static_cast<std::size_t>(infoLogLength));
 
 			std::string strShaderType;
 			switch (glType) {
@@ -442,8 +444,7 @@ public:
 		_ctx->ctx_glUseProgram(_program);
 		checkError();
 		_active = true;
-
-		return true;
+		return _active;
 	}
 
 	void deactivate() const {
@@ -729,5 +730,10 @@ public:
 		_shader.deactivate();
 	}
 };
+
+#undef checkError
+#undef VERTEX_POSTFIX
+#undef FRAGMENT_POSTFIX
+#undef MAX_SHADER_VAR_NAME
 
 }
