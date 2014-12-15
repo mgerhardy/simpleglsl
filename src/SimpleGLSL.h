@@ -144,6 +144,10 @@ public:
 		ctx_glVertexAttrib4f(_glVertexAttrib4f)
 	{}
 
+	virtual ~GLSLContext() {}
+
+	virtual std::string loadShaderFile(const std::string& filename) = 0;
+
 	GLuint (*ctx_glCreateShader)(GLenum type);
 	void (*ctx_glDeleteShader)(GLuint id);
 	void (*ctx_glShaderSource)(GLuint id, GLuint count, const GLchar **sources, GLuint *len);
@@ -248,7 +252,7 @@ protected:
 		src.append("#version 120\n#define lowp\n#define mediump\n#define highp\n");
 #endif
 
-		std::string append(buffer, len);
+		std::string append(buffer);
 
 		const std::string include = "#include";
 		int index = 0;
@@ -275,7 +279,7 @@ protected:
 						continue;
 
 					const std::string includeFile(cStart + 1, cEnd);
-					const std::string includeBuffer = loadShaderFile(includeFile);
+					const std::string& includeBuffer = _ctx->loadShaderFile(includeFile);
 					if (!includeBuffer.empty()) {
 						std::cerr << "could not load shader include " << includeFile << std::endl;
 						break;
@@ -325,6 +329,7 @@ public:
 			_shader[i] = 0;
 		}
 	}
+
 	virtual ~Shader () {
 		for (int i = 0; i < SHADER_MAX; ++i) {
 			_ctx->ctx_glDeleteShader(_shader[i]);
@@ -365,19 +370,20 @@ public:
 			}
 
 			std::cerr << "compile failure in " << filename << " (type: " << strShaderType << ") shader:"  << std::endl << errorLog << std::endl;
+			return false;
 		}
 
 		return true;
 	}
 
 	bool loadFromFile (const std::string& filename, ShaderType shaderType) {
-		const std::string buffer = loadShaderFile(filename);
+		const std::string& buffer = _ctx->loadShaderFile(filename);
 		if (buffer.empty()) {
 			std::cerr << "could not load shader " << filename << std::endl;
 			return false;
 		}
 
-		const std::string src = getSource(shaderType, buffer);
+		const std::string& src = getSource(shaderType, buffer);
 		return load(filename, src, shaderType);
 	}
 
@@ -398,7 +404,9 @@ public:
 		return success;
 	}
 
-	GLuint getShader (ShaderType shaderType) const;
+	GLuint getShader (ShaderType shaderType) const {
+		return _shader[shaderType];
+	}
 
 	virtual void update (uint32_t deltaTime) {
 		_time += deltaTime;
@@ -485,11 +493,6 @@ public:
 	bool hasAttribute (const std::string& name) const;
 	bool hasUniform (const std::string& name) const;
 };
-
-inline GLuint Shader::getShader (ShaderType shaderType) const
-{
-	return _shader[shaderType];
-}
 
 inline void Shader::setUniformi (const std::string& name, int value) const
 {
