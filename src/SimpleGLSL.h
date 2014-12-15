@@ -1,9 +1,22 @@
 #pragma once
 
+#include <iostream>
 #include <string>
+#include <cstdint>
+#include <memory>
 #include <map>
 #include <glm/glm.hpp>
-#include "GLSLContext.h"
+
+#ifndef GLenum
+#error "No GL header included before including this header"
+#endif
+
+#ifndef VERTEX_POSTFIX
+#define VERTEX_POSTFIX "_vs.glsl"
+#endif
+#ifndef FRAGMENT_POSTFIX
+#define FRAGMENT_POSTFIX "_fs.glsl"
+#endif
 
 #define MAX_SHADER_VAR_NAME 128
 
@@ -15,11 +28,40 @@ protected:
 	const int _line;
 	const char* _function;
 
-	const char* translateError (GLenum glError) const;
+	inline const char* translateError (GLenum glError) const
+	{
+#define GL_ERROR_TRANSLATE(e) case e: return #e;
+		switch (glError) {
+		GL_ERROR_TRANSLATE(GL_INVALID_ENUM)
+		GL_ERROR_TRANSLATE(GL_INVALID_VALUE)
+		GL_ERROR_TRANSLATE(GL_INVALID_OPERATION)
+		GL_ERROR_TRANSLATE(GL_OUT_OF_MEMORY)
+#ifdef GL_STACK_OVERFLOW
+		GL_ERROR_TRANSLATE(GL_STACK_OVERFLOW)
+#endif
+#ifdef GL_STACK_UNDERFLOW
+		GL_ERROR_TRANSLATE(GL_STACK_UNDERFLOW)
+#endif
+		default:
+			return "UNKNOWN";
+		}
+#undef GL_ERROR_TRANSLATE
+	}
 
 public:
-	OpenGLStateHandlerCheckError(const char *file, int line, const char *function);
-	~OpenGLStateHandlerCheckError();
+	OpenGLStateHandlerCheckError(const char *file, int line, const char *function) :
+		_file(file), _line(line), _function(function) {
+	}
+
+	~OpenGLStateHandlerCheckError() {
+		for (;;) {
+			const GLenum glError = glGetError();
+			if (glError == GL_NO_ERROR)
+				break;
+			std::cout << "openGL err: " << _file << " (" << _line << "): " << _function;
+			std::cout << " " << translateError(glError) << " (" << glError << ")" << std::endl;
+		}
+	}
 };
 
 #ifdef _DEBUG
@@ -31,8 +73,8 @@ public:
 class GLSLContext {
 public:
 	GLSLContext(
-		GLuint (*_glCreateShader)(GLenum type), 
-		void (*_glDeleteShader)(GLuint id), 
+		GLuint (*_glCreateShader)(GLenum type),
+		void (*_glDeleteShader)(GLuint id),
 		void (*_glShaderSource)(GLuint id, GLuint count, const GLchar **sources, GLuint *len),
 		void (*_glCompileShader)(GLuint id),
 		void (*_glGetShaderiv)(GLuint id, GLenum field, GLint *dest),
@@ -98,8 +140,9 @@ public:
 		ctx_glGetAttribLocation(_glGetAttribLocation),
 		ctx_glUniformMatrix2fv(_glUniformMatrix2fv),
 		ctx_glUniformMatrix3fv(_glUniformMatrix3fv),
-		ctx_glUniformMatrix4fv(_glUniformMatrix4fv)
-	}
+		ctx_glUniformMatrix4fv(_glUniformMatrix4fv),
+		ctx_glVertexAttrib4f(_glVertexAttrib4f)
+	{}
 
 	GLuint (*ctx_glCreateShader)(GLenum type);
 	void (*ctx_glDeleteShader)(GLuint id);
@@ -155,34 +198,248 @@ protected:
 	ShaderVariables _uniforms;
 	ShaderVariables _attributes;
 
-	glm::mat4 _projectionMatrix;
-	glm::mat4 _modelViewMatrix;
 	mutable uint32_t _time;
 
-	void fetchUniforms ();
-	void fetchAttributes ();
+	void fetchUniforms () {
+		char name[MAX_SHADER_VAR_NAME];
+		int numUniforms = 0;
+		_ctx->ctx_glGetProgramiv(_program, GL_ACTIVE_UNIFORMS, &numUniforms);
+		checkError();
 
-	std::string getSource (ShaderType shaderType, const char *buffer, int len);
-	void createProgramFromShaders ();
+		_uniforms.clear();
+		for (int i = 0; i < numUniforms; i++) {
+			GLsizei length;
+			GLint size;
+			GLenum type;
+			_ctx->ctx_glGetActiveUniform(_program, i, MAX_SHADER_VAR_NAME - 1, &length, &size, &type, name);
+			const int location = _ctx->ctx_glGetUniformLocation(_program, name);
+			_uniforms[name] = location;
+		}
+	}
+
+	void fetchAttributes () {
+		char name[MAX_SHADER_VAR_NAME];
+		int numAttributes = 0;
+		_ctx->ctx_glGetProgramiv(_program, GL_ACTIVE_ATTRIBUTES, &numAttributes);
+		checkError();
+
+		_attributes.clear();
+		for (int i = 0; i < numAttributes; i++) {
+			GLsizei length;
+			GLint size;
+			GLenum type;
+			_ctx->ctx_glGetActiveAttrib(_program, i, MAX_SHADER_VAR_NAME - 1, &length, &size, &type, name);
+			const int location = _ctx->ctx_glGetAttribLocation(_program, name);
+			_attributes[name] = location;
+		}
+	}
+
+	std::string getSource (ShaderType shaderType, const std::string& buffer) {
+		std::string src;
+#ifdef GL_ES_VERSION_2_0
+		src.append("#version 120\n");
+		if (shaderType == SHADER_FRAGMENT) {
+			src.append("#ifdef GL_ES\n");
+			src.append("precision mediump float;\n");
+			src.append("precision mediump int;\n");
+			src.append("#endif\n");
+		}
+#else
+		src.append("#version 120\n#define lowp\n#define mediump\n#define highp\n");
+#endif
+
+		std::string append(buffer, len);
+
+		const std::string include = "#include";
+		int index = 0;
+		for (std::string::iterator i = append.begin(); i != append.end(); ++i, ++index) {
+			const char *c = &append[index];
+			if (*c != '#') {
+				src.append(c, 1);
+				continue;
+			}
+			if (strncmp(include.c_str(), c, include.length())) {
+				src.append(c, 1);
+				continue;
+			}
+			for (; i != append.end(); ++i, ++index) {
+				const char *cStart = &append[index];
+				if (*cStart != '"')
+					continue;
+
+				++index;
+				++i;
+				for (; i != append.end(); ++i, ++index) {
+					const char *cEnd = &append[index];
+					if (*cEnd != '"')
+						continue;
+
+					const std::string includeFile(cStart + 1, cEnd);
+					const std::string includeBuffer = loadShaderFile(includeFile);
+					if (!includeBuffer.empty()) {
+						std::cerr << "could not load shader include " << includeFile << std::endl;
+						break;
+					}
+					src.append(includeBuffer);
+					break;
+				}
+				break;
+			}
+		}
+
+		return src;
+	}
+
+	void createProgramFromShaders () {
+		checkError();
+		GLint status;
+		_program = _ctx->ctx_glCreateProgram();
+		checkError();
+
+		const GLuint vert = _shader[SHADER_VERTEX];
+		const GLuint frag = _shader[SHADER_FRAGMENT];
+
+		_ctx->ctx_glAttachShader(_program, vert);
+		_ctx->ctx_glAttachShader(_program, frag);
+		checkError();
+
+		_ctx->ctx_glLinkProgram(_program);
+		_ctx->ctx_glGetProgramiv(_program, GL_LINK_STATUS, &status);
+		checkError();
+		if (status == GL_TRUE)
+			return;
+		GLint infoLogLength;
+		_ctx->ctx_glGetProgramiv(_program, GL_INFO_LOG_LENGTH, &infoLogLength);
+
+		GLchar* strInfoLog = new GLchar[infoLogLength + 1];
+		_ctx->ctx_glGetProgramInfoLog(_program, infoLogLength, nullptr, strInfoLog);
+		std::cerr << "linker failure: " << strInfoLog << std::endl;
+		_ctx->ctx_glDeleteProgram(_program);
+		_program = 0;
+		delete[] strInfoLog;
+	}
 public:
-	Shader (GLSLContext* ctx);
-	virtual ~Shader ();
+	Shader (GLSLContext* ctx) :
+			_ctx(ctx), _program(0), _initialized(false), _active(false), _time(0) {
+		for (int i = 0; i < SHADER_MAX; ++i) {
+			_shader[i] = 0;
+		}
+	}
+	virtual ~Shader () {
+		for (int i = 0; i < SHADER_MAX; ++i) {
+			_ctx->ctx_glDeleteShader(_shader[i]);
+		}
+		_ctx->ctx_glDeleteProgram(_program);
+	}
 
-	bool load (const std::string& filename, const std::string& source, ShaderType shaderType);
-	bool loadFromFile (const std::string& filename, ShaderType shaderType);
-	bool loadProgram (const std::string& filename);
+	bool load (const std::string& filename, const std::string& source, ShaderType shaderType) {
+		const GLenum glType = shaderType == SHADER_VERTEX ? GL_VERTEX_SHADER : GL_FRAGMENT_SHADER;
+		checkError();
+
+		_shader[shaderType] = _ctx->ctx_glCreateShader(glType);
+		const char *s = source.c_str();
+		_ctx->ctx_glShaderSource(_shader[shaderType], 1, (const GLchar**) &s, nullptr);
+		_ctx->ctx_glCompileShader(_shader[shaderType]);
+
+		GLint status;
+		_ctx->ctx_glGetShaderiv(_shader[shaderType], GL_COMPILE_STATUS, &status);
+		if (status != GL_TRUE || glGetError() != GL_NO_ERROR) {
+			GLint infoLogLength;
+			_ctx->ctx_glGetShaderiv(_shader[shaderType], GL_INFO_LOG_LENGTH, &infoLogLength);
+
+			std::unique_ptr<GLchar> strInfoLog(new GLchar[infoLogLength + 1]);
+			_ctx->ctx_glGetShaderInfoLog(_shader[shaderType], infoLogLength, nullptr, strInfoLog);
+			std::string errorLog(strInfoLog, static_cast<std::size_t>(infoLogLength));
+
+			std::string strShaderType;
+			switch (glType) {
+			case GL_VERTEX_SHADER:
+				strShaderType = "vertex";
+				break;
+			case GL_FRAGMENT_SHADER:
+				strShaderType = "fragment";
+				break;
+			default:
+				strShaderType = "unknown";
+				break;
+			}
+
+			std::cerr << "compile failure in " << filename << " (type: " << strShaderType << ") shader:"  << std::endl << errorLog << std::endl;
+		}
+
+		return true;
+	}
+
+	bool loadFromFile (const std::string& filename, ShaderType shaderType) {
+		const std::string buffer = loadShaderFile(filename);
+		if (buffer.empty()) {
+			std::cerr << "could not load shader " << filename << std::endl;
+			return false;
+		}
+
+		const std::string src = getSource(shaderType, buffer);
+		return load(filename, src, shaderType);
+	}
+
+	bool loadProgram (const std::string& filename) {
+		const bool vertex = loadFromFile(filename + VERTEX_POSTFIX, SHADER_VERTEX);
+		if (!vertex)
+			return false;
+
+		const bool fragment = loadFromFile(filename + FRAGMENT_POSTFIX, SHADER_FRAGMENT);
+		if (!fragment)
+			return false;
+
+		createProgramFromShaders();
+		fetchAttributes();
+		fetchUniforms();
+		const bool success = _program != 0;
+		_initialized = success;
+		return success;
+	}
 
 	GLuint getShader (ShaderType shaderType) const;
 
-	void setProjectionMatrix (const glm::mat4& matrix);
-	void setModelViewMatrix (const glm::mat4& matrix);
+	virtual void update (uint32_t deltaTime) {
+		_time += deltaTime;
+	}
 
-	virtual void update (uint32_t deltaTime);
-	bool activate () const;
-	void deactivate () const;
+	bool activate () const {
+		_ctx->ctx_glUseProgram(_program);
+		checkError();
+		_active = true;
 
-	int getAttributeLocation (const std::string& name) const;
-	int getUniformLocation (const std::string& name) const;
+		return true;
+	}
+
+	void deactivate () const {
+		if (!_active) {
+			return;
+		}
+
+		_ctx->ctx_glUseProgram(0);
+		checkError();
+		_active = false;
+		_time = 0;
+	}
+
+	int getAttributeLocation (const std::string& name) const {
+		ShaderVariables::const_iterator i = _attributes.find(name);
+		if (i == _attributes.end()) {
+			std::cerr << "can't find attribute " << name << std::endl;
+			return -1;
+		}
+		return i->second;
+	}
+
+	int getUniformLocation (const std::string& name) const {
+		ShaderVariables::const_iterator i = _uniforms.find(name);
+		if (i == _uniforms.end()) {
+			std::cerr << "can't find uniform " << name << std::endl;
+			return -1;
+		}
+		return i->second;
+	}
 
 	void setUniformi (const std::string& name, int value) const;
 	void setUniformi (int location, int value) const;
@@ -495,8 +752,14 @@ class ShaderScope {
 private:
 	const Shader& _shader;
 public:
-	ShaderScope (const Shader& shader);
-	virtual ~ShaderScope ();
+	ShaderScope (const Shader& shader) :
+			_shader(shader) {
+		_shader.activate();
+	}
+
+	virtual ~ShaderScope () {
+		_shader.deactivate();
+	}
 };
 
 }
