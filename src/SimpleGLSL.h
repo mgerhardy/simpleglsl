@@ -440,22 +440,23 @@ public:
 		_time += deltaTime;
 	}
 
-	bool activate() const {
+	virtual bool activate() const {
 		_ctx->ctx_glUseProgram(_program);
 		checkError();
 		_active = true;
 		return _active;
 	}
 
-	void deactivate() const {
+	virtual bool deactivate() const {
 		if (!_active) {
-			return;
+			return false;
 		}
 
 		_ctx->ctx_glUseProgram(0);
 		checkError();
 		_active = false;
 		_time = 0;
+		return _active;
 	}
 
 	void setUniformi(const std::string& name, int value) const;
