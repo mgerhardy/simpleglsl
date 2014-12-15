@@ -70,9 +70,19 @@ public:
 #define checkError()
 #endif
 
+/**
+ * Extend this class and hand it over to your shaders - should just be a singleton.
+ */
 class GLSLContext {
+	friend class Shader;
 public:
-	GLSLContext(
+	virtual ~GLSLContext() {
+	}
+
+	/**
+	 * @brief Call init() to set your gl function pointers
+	 */
+	void init(
 		GLuint (*_glCreateShader)(GLenum type),
 		void (*_glDeleteShader)(GLuint id),
 		void (*_glShaderSource)(GLuint id, GLuint count, const GLchar **sources, GLuint *len),
@@ -107,47 +117,46 @@ public:
 		void (*_glUniformMatrix3fv)(GLint location, int count, GLboolean transpose, GLfloat *v),
 		void (*_glUniformMatrix4fv)(GLint location, int count, GLboolean transpose, GLfloat *v),
 		void (*_glVertexAttrib4f) (GLuint indx, GLfloat x, GLfloat y, GLfloat z, GLfloat w)
-	) :
-		ctx_glCreateShader(_glCreateShader),
-		ctx_glDeleteShader(_glDeleteShader),
-		ctx_glShaderSource(_glShaderSource),
-		ctx_glCompileShader(_glCompileShader),
-		ctx_glGetShaderiv(_glGetShaderiv),
-		ctx_glGetShaderInfoLog(_glGetShaderInfoLog),
-		ctx_glCreateProgram(_glCreateProgram),
-		ctx_glDeleteProgram(_glDeleteProgram),
-		ctx_glAttachShader(_glAttachShader),
-		ctx_glDetachShader(_glDetachShader),
-		ctx_glLinkProgram(_glLinkProgram),
-		ctx_glUseProgram(_glUseProgram),
-		ctx_glGetActiveUniform(_glGetActiveUniform),
-		ctx_glGetProgramiv(_glGetProgramiv),
-		ctx_glGetProgramInfoLog(_glGetProgramInfoLog),
-		ctx_glGetUniformLocation(_glGetUniformLocation),
-		ctx_glUniform1i(_glUniform1i),
-		ctx_glUniform2i(_glUniform2i),
-		ctx_glUniform3i(_glUniform3i),
-		ctx_glUniform4i(_glUniform4i),
-		ctx_glUniform1f(_glUniform1f),
-		ctx_glUniform2f(_glUniform2f),
-		ctx_glUniform3f(_glUniform3f),
-		ctx_glUniform4f(_glUniform4f),
-		ctx_glUniform1fv(_glUniform1fv),
-		ctx_glUniform2fv(_glUniform2fv),
-		ctx_glUniform3fv(_glUniform3fv),
-		ctx_glUniform4fv(_glUniform4fv),
-		ctx_glGetActiveAttrib(_glGetActiveAttrib),
-		ctx_glGetAttribLocation(_glGetAttribLocation),
-		ctx_glUniformMatrix2fv(_glUniformMatrix2fv),
-		ctx_glUniformMatrix3fv(_glUniformMatrix3fv),
-		ctx_glUniformMatrix4fv(_glUniformMatrix4fv),
-		ctx_glVertexAttrib4f(_glVertexAttrib4f)
-	{}
-
-	virtual ~GLSLContext() {}
+	) {
+		ctx_glCreateShader = _glCreateShader;
+		ctx_glDeleteShader = _glDeleteShader;
+		ctx_glShaderSource = _glShaderSource;
+		ctx_glCompileShader = _glCompileShader;
+		ctx_glGetShaderiv = _glGetShaderiv;
+		ctx_glGetShaderInfoLog = _glGetShaderInfoLog;
+		ctx_glCreateProgram = _glCreateProgram;
+		ctx_glDeleteProgram = _glDeleteProgram;
+		ctx_glAttachShader = _glAttachShader;
+		ctx_glDetachShader = _glDetachShader;
+		ctx_glLinkProgram = _glLinkProgram;
+		ctx_glUseProgram = _glUseProgram;
+		ctx_glGetActiveUniform = _glGetActiveUniform;
+		ctx_glGetProgramiv = _glGetProgramiv;
+		ctx_glGetProgramInfoLog = _glGetProgramInfoLog;
+		ctx_glGetUniformLocation = _glGetUniformLocation;
+		ctx_glUniform1i = _glUniform1i;
+		ctx_glUniform2i = _glUniform2i;
+		ctx_glUniform3i = _glUniform3i;
+		ctx_glUniform4i = _glUniform4i;
+		ctx_glUniform1f = _glUniform1f;
+		ctx_glUniform2f = _glUniform2f;
+		ctx_glUniform3f = _glUniform3f;
+		ctx_glUniform4f = _glUniform4f;
+		ctx_glUniform1fv = _glUniform1fv;
+		ctx_glUniform2fv = _glUniform2fv;
+		ctx_glUniform3fv = _glUniform3fv;
+		ctx_glUniform4fv = _glUniform4fv;
+		ctx_glGetActiveAttrib = _glGetActiveAttrib;
+		ctx_glGetAttribLocation = _glGetAttribLocation;
+		ctx_glUniformMatrix2fv = _glUniformMatrix2fv;
+		ctx_glUniformMatrix3fv = _glUniformMatrix3fv;
+		ctx_glUniformMatrix4fv = _glUniformMatrix4fv;
+		ctx_glVertexAttrib4f = _glVertexAttrib4f;
+	}
 
 	virtual std::string loadShaderFile(const std::string& filename) = 0;
 
+private:
 	GLuint (*ctx_glCreateShader)(GLenum type);
 	void (*ctx_glDeleteShader)(GLuint id);
 	void (*ctx_glShaderSource)(GLuint id, GLuint count, const GLchar **sources, GLuint *len);
@@ -203,6 +212,24 @@ protected:
 	ShaderVariables _attributes;
 
 	mutable uint32_t _time;
+
+	int getAttributeLocation (const std::string& name) const {
+		ShaderVariables::const_iterator i = _attributes.find(name);
+		if (i == _attributes.end()) {
+			std::cerr << "can't find attribute " << name << std::endl;
+			return -1;
+		}
+		return i->second;
+	}
+
+	int getUniformLocation (const std::string& name) const {
+		ShaderVariables::const_iterator i = _uniforms.find(name);
+		if (i == _uniforms.end()) {
+			std::cerr << "can't find uniform " << name << std::endl;
+			return -1;
+		}
+		return i->second;
+	}
 
 	void fetchUniforms () {
 		char name[MAX_SHADER_VAR_NAME];
@@ -429,24 +456,6 @@ public:
 		checkError();
 		_active = false;
 		_time = 0;
-	}
-
-	int getAttributeLocation (const std::string& name) const {
-		ShaderVariables::const_iterator i = _attributes.find(name);
-		if (i == _attributes.end()) {
-			std::cerr << "can't find attribute " << name << std::endl;
-			return -1;
-		}
-		return i->second;
-	}
-
-	int getUniformLocation (const std::string& name) const {
-		ShaderVariables::const_iterator i = _uniforms.find(name);
-		if (i == _uniforms.end()) {
-			std::cerr << "can't find uniform " << name << std::endl;
-			return -1;
-		}
-		return i->second;
 	}
 
 	void setUniformi (const std::string& name, int value) const;
