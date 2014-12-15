@@ -28,8 +28,7 @@ protected:
 	const int _line;
 	const char* _function;
 
-	inline const char* translateError (GLenum glError) const
-	{
+	inline const char* translateError(GLenum glError) const {
 #define GL_ERROR_TRANSLATE(e) case e: return #e;
 		switch (glError) {
 		GL_ERROR_TRANSLATE(GL_INVALID_ENUM)
@@ -50,7 +49,7 @@ protected:
 
 public:
 	CheckErrorState(const char *file, int line, const char *function) :
-		_file(file), _line(line), _function(function) {
+			_file(file), _line(line), _function(function) {
 	}
 
 	~CheckErrorState() {
@@ -117,7 +116,7 @@ public:
 		void (*_glUniformMatrix3fv)(GLint location, int count, GLboolean transpose, GLfloat *v),
 		void (*_glUniformMatrix4fv)(GLint location, int count, GLboolean transpose, GLfloat *v),
 		void (*_glVertexAttrib4f) (GLuint indx, GLfloat x, GLfloat y, GLfloat z, GLfloat w)
-	) {
+		) {
 		ctx_glCreateShader = _glCreateShader;
 		ctx_glDeleteShader = _glDeleteShader;
 		ctx_glShaderSource = _glShaderSource;
@@ -190,7 +189,7 @@ private:
 	void (*ctx_glUniformMatrix2fv)(GLint location, int count, GLboolean transpose, GLfloat *v);
 	void (*ctx_glUniformMatrix3fv)(GLint location, int count, GLboolean transpose, GLfloat *v);
 	void (*ctx_glUniformMatrix4fv)(GLint location, int count, GLboolean transpose, GLfloat *v);
-	void (*ctx_glVertexAttrib4f) (GLuint indx, GLfloat x, GLfloat y, GLfloat z, GLfloat w);
+	void (*ctx_glVertexAttrib4f)(GLuint indx, GLfloat x, GLfloat y, GLfloat z, GLfloat w);
 };
 
 enum ShaderType {
@@ -213,7 +212,7 @@ protected:
 
 	mutable uint32_t _time;
 
-	int getAttributeLocation (const std::string& name) const {
+	int getAttributeLocation(const std::string& name) const {
 		ShaderVariables::const_iterator i = _attributes.find(name);
 		if (i == _attributes.end()) {
 			std::cerr << "can't find attribute " << name << std::endl;
@@ -222,7 +221,7 @@ protected:
 		return i->second;
 	}
 
-	int getUniformLocation (const std::string& name) const {
+	int getUniformLocation(const std::string& name) const {
 		ShaderVariables::const_iterator i = _uniforms.find(name);
 		if (i == _uniforms.end()) {
 			std::cerr << "can't find uniform " << name << std::endl;
@@ -231,7 +230,7 @@ protected:
 		return i->second;
 	}
 
-	void fetchUniforms () {
+	void fetchUniforms() {
 		char name[MAX_SHADER_VAR_NAME];
 		int numUniforms = 0;
 		_ctx->ctx_glGetProgramiv(_program, GL_ACTIVE_UNIFORMS, &numUniforms);
@@ -248,7 +247,7 @@ protected:
 		}
 	}
 
-	void fetchAttributes () {
+	void fetchAttributes() {
 		char name[MAX_SHADER_VAR_NAME];
 		int numAttributes = 0;
 		_ctx->ctx_glGetProgramiv(_program, GL_ACTIVE_ATTRIBUTES, &numAttributes);
@@ -265,7 +264,7 @@ protected:
 		}
 	}
 
-	std::string getSource (ShaderType shaderType, const std::string& buffer) {
+	std::string getSource(ShaderType shaderType, const std::string& buffer) {
 		std::string src;
 #ifdef GL_ES_VERSION_2_0
 		src.append("#version 120\n");
@@ -321,7 +320,7 @@ protected:
 		return src;
 	}
 
-	void createProgramFromShaders () {
+	void createProgramFromShaders() {
 		checkError();
 		GLint status;
 		_program = _ctx->ctx_glCreateProgram();
@@ -350,21 +349,21 @@ protected:
 		delete[] strInfoLog;
 	}
 public:
-	Shader (Context* ctx) :
+	Shader(Context* ctx) :
 			_ctx(ctx), _program(0), _initialized(false), _active(false), _time(0) {
 		for (int i = 0; i < SHADER_MAX; ++i) {
 			_shader[i] = 0;
 		}
 	}
 
-	virtual ~Shader () {
+	virtual ~Shader() {
 		for (int i = 0; i < SHADER_MAX; ++i) {
 			_ctx->ctx_glDeleteShader(_shader[i]);
 		}
 		_ctx->ctx_glDeleteProgram(_program);
 	}
 
-	bool load (const std::string& filename, const std::string& source, ShaderType shaderType) {
+	bool load(const std::string& filename, const std::string& source, ShaderType shaderType) {
 		const GLenum glType = shaderType == SHADER_VERTEX ? GL_VERTEX_SHADER : GL_FRAGMENT_SHADER;
 		checkError();
 
@@ -379,7 +378,7 @@ public:
 			GLint infoLogLength;
 			_ctx->ctx_glGetShaderiv(_shader[shaderType], GL_INFO_LOG_LENGTH, &infoLogLength);
 
-			std::unique_ptr<GLchar> strInfoLog(new GLchar[infoLogLength + 1]);
+			std::unique_ptr < GLchar > strInfoLog(new GLchar[infoLogLength + 1]);
 			_ctx->ctx_glGetShaderInfoLog(_shader[shaderType], infoLogLength, nullptr, strInfoLog);
 			std::string errorLog(strInfoLog, static_cast<std::size_t>(infoLogLength));
 
@@ -396,14 +395,14 @@ public:
 				break;
 			}
 
-			std::cerr << "compile failure in " << filename << " (type: " << strShaderType << ") shader:"  << std::endl << errorLog << std::endl;
+			std::cerr << "compile failure in " << filename << " (type: " << strShaderType << ") shader:" << std::endl << errorLog << std::endl;
 			return false;
 		}
 
 		return true;
 	}
 
-	bool loadFromFile (const std::string& filename, ShaderType shaderType) {
+	bool loadFromFile(const std::string& filename, ShaderType shaderType) {
 		const std::string& buffer = _ctx->loadShaderFile(filename);
 		if (buffer.empty()) {
 			std::cerr << "could not load shader " << filename << std::endl;
@@ -414,7 +413,7 @@ public:
 		return load(filename, src, shaderType);
 	}
 
-	bool loadProgram (const std::string& filename) {
+	bool loadProgram(const std::string& filename) {
 		const bool vertex = loadFromFile(filename + VERTEX_POSTFIX, SHADER_VERTEX);
 		if (!vertex)
 			return false;
@@ -431,15 +430,15 @@ public:
 		return success;
 	}
 
-	GLuint getShader (ShaderType shaderType) const {
+	GLuint getShader(ShaderType shaderType) const {
 		return _shader[shaderType];
 	}
 
-	virtual void update (uint32_t deltaTime) {
+	virtual void update(uint32_t deltaTime) {
 		_time += deltaTime;
 	}
 
-	bool activate () const {
+	bool activate() const {
 		_ctx->ctx_glUseProgram(_program);
 		checkError();
 		_active = true;
@@ -447,7 +446,7 @@ public:
 		return true;
 	}
 
-	void deactivate () const {
+	void deactivate() const {
 		if (!_active) {
 			return;
 		}
@@ -458,305 +457,262 @@ public:
 		_time = 0;
 	}
 
-	void setUniformi (const std::string& name, int value) const;
-	void setUniformi (int location, int value) const;
-	void setUniformi (const std::string& name, int value1, int value2) const;
-	void setUniformi (int location, int value1, int value2) const;
-	void setUniformi (const std::string& name, int value1, int value2, int value3) const;
-	void setUniformi (int location, int value1, int value2, int value3) const;
-	void setUniformi (const std::string& name, int value1, int value2, int value3, int value4) const;
-	void setUniformi (int location, int value1, int value2, int value3, int value4) const;
-	void setUniformf (const std::string& name, float value) const;
-	void setUniformf (int location, float value) const;
-	void setUniformf (const std::string& name, float value1, float value2) const;
-	void setUniformf (int location, float value1, float value2) const;
-	void setUniformf (const std::string& name, float value1, float value2, float value3) const;
-	void setUniformf (int location, float value1, float value2, float value3) const;
-	void setUniformf (const std::string& name, float value1, float value2, float value3, float value4) const;
-	void setUniformf (int location, float value1, float value2, float value3, float value4) const;
-	void setUniform1fv (const std::string& name, float* values, int offset, int length) const;
-	void setUniform1fv (int location, float* values, int offset, int length) const;
-	void setUniform2fv (const std::string& name, float* values, int offset, int length) const;
-	void setUniform2fv (int location, float* values, int offset, int length) const;
-	void setUniform3fv (const std::string& name, float* values, int offset, int length) const;
-	void setUniform3fv (int location, float* values, int offset, int length) const;
-	void setUniform4fv (const std::string& name, float* values, int offset, int length) const;
-	void setUniform4fv (int location, float* values, int offset, int length) const;
-	void setUniformMatrix (const std::string& name, glm::mat4& matrix, bool transpose = false) const;
-	void setUniformMatrix (int location, glm::mat4& matrix, bool transpose = false) const;
-	void setUniformMatrix (const std::string& name, glm::mat3& matrix, bool transpose = false) const;
-	void setUniformMatrix (int location, glm::mat3& matrix, bool transpose = false) const;
-	void setUniformf (const std::string& name, glm::vec2& values) const;
-	void setUniformf (int location, glm::vec2& values) const;
-	void setUniformf (const std::string& name, glm::vec3& values) const;
-	void setUniformf (int location, glm::vec3& values) const;
-	void setUniformf (const std::string& name, Color values) const;
-	void setUniformf (int location, Color values) const;
-	void setVertexAttribute (const std::string& name, int size, int type, bool normalize, int stride, void* buffer) const;
-	void setVertexAttribute (int location, int size, int type, bool normalize, int stride, void* buffer) const;
-	void setAttributef (const std::string& name, float value1, float value2, float value3, float value4) const;
-	void disableVertexAttribute (const std::string& name) const;
-	void disableVertexAttribute (int location) const;
-	void enableVertexAttribute (const std::string& name) const;
-	void enableVertexAttribute (int location) const;
-	bool hasAttribute (const std::string& name) const;
-	bool hasUniform (const std::string& name) const;
+	void setUniformi(const std::string& name, int value) const;
+	void setUniformi(int location, int value) const;
+	void setUniformi(const std::string& name, int value1, int value2) const;
+	void setUniformi(int location, int value1, int value2) const;
+	void setUniformi(const std::string& name, int value1, int value2, int value3) const;
+	void setUniformi(int location, int value1, int value2, int value3) const;
+	void setUniformi(const std::string& name, int value1, int value2, int value3, int value4) const;
+	void setUniformi(int location, int value1, int value2, int value3, int value4) const;
+	void setUniformf(const std::string& name, float value) const;
+	void setUniformf(int location, float value) const;
+	void setUniformf(const std::string& name, float value1, float value2) const;
+	void setUniformf(int location, float value1, float value2) const;
+	void setUniformf(const std::string& name, float value1, float value2, float value3) const;
+	void setUniformf(int location, float value1, float value2, float value3) const;
+	void setUniformf(const std::string& name, float value1, float value2, float value3, float value4) const;
+	void setUniformf(int location, float value1, float value2, float value3, float value4) const;
+	void setUniform1fv(const std::string& name, float* values, int offset, int length) const;
+	void setUniform1fv(int location, float* values, int offset, int length) const;
+	void setUniform2fv(const std::string& name, float* values, int offset, int length) const;
+	void setUniform2fv(int location, float* values, int offset, int length) const;
+	void setUniform3fv(const std::string& name, float* values, int offset, int length) const;
+	void setUniform3fv(int location, float* values, int offset, int length) const;
+	void setUniform4fv(const std::string& name, float* values, int offset, int length) const;
+	void setUniform4fv(int location, float* values, int offset, int length) const;
+	void setUniformMatrix(const std::string& name, glm::mat4& matrix, bool transpose = false) const;
+	void setUniformMatrix(int location, glm::mat4& matrix, bool transpose = false) const;
+	void setUniformMatrix(const std::string& name, glm::mat3& matrix, bool transpose = false) const;
+	void setUniformMatrix(int location, glm::mat3& matrix, bool transpose = false) const;
+	void setUniformf(const std::string& name, glm::vec2& values) const;
+	void setUniformf(int location, glm::vec2& values) const;
+	void setUniformf(const std::string& name, glm::vec3& values) const;
+	void setUniformf(int location, glm::vec3& values) const;
+	void setUniformf(const std::string& name, Color values) const;
+	void setUniformf(int location, Color values) const;
+	void setVertexAttribute(const std::string& name, int size, int type, bool normalize, int stride, void* buffer) const;
+	void setVertexAttribute(int location, int size, int type, bool normalize, int stride, void* buffer) const;
+	void setAttributef(const std::string& name, float value1, float value2, float value3, float value4) const;
+	void disableVertexAttribute(const std::string& name) const;
+	void disableVertexAttribute(int location) const;
+	void enableVertexAttribute(const std::string& name) const;
+	void enableVertexAttribute(int location) const;
+	bool hasAttribute(const std::string& name) const;
+	bool hasUniform(const std::string& name) const;
 };
 
-inline void Shader::setUniformi (const std::string& name, int value) const
-{
+inline void Shader::setUniformi(const std::string& name, int value) const {
 	const int location = getUniformLocation(name);
 	setUniformi(location, value);
 }
 
-inline void Shader::setUniformi (int location, int value) const
-{
+inline void Shader::setUniformi(int location, int value) const {
 	_ctx->ctx_glUniform1i(location, value);
 	checkError();
 }
 
-inline void Shader::setUniformi (const std::string& name, int value1, int value2) const
-{
+inline void Shader::setUniformi(const std::string& name, int value1, int value2) const {
 	const int location = getUniformLocation(name);
 	setUniformi(location, value1, value2);
 }
 
-inline void Shader::setUniformi (int location, int value1, int value2) const
-{
+inline void Shader::setUniformi(int location, int value1, int value2) const {
 	_ctx->ctx_glUniform2i(location, value1, value2);
 	checkError();
 }
 
-inline void Shader::setUniformi (const std::string& name, int value1, int value2, int value3) const
-{
+inline void Shader::setUniformi(const std::string& name, int value1, int value2, int value3) const {
 	const int location = getUniformLocation(name);
 	setUniformi(location, value1, value2, value3);
 }
 
-inline void Shader::setUniformi (int location, int value1, int value2, int value3) const
-{
+inline void Shader::setUniformi(int location, int value1, int value2, int value3) const {
 	_ctx->ctx_glUniform3i(location, value1, value2, value3);
 	checkError();
 }
 
-inline void Shader::setUniformi (const std::string& name, int value1, int value2, int value3, int value4) const
-{
+inline void Shader::setUniformi(const std::string& name, int value1, int value2, int value3, int value4) const {
 	const int location = getUniformLocation(name);
 	setUniformi(location, value1, value2, value3, value4);
 }
 
-inline void Shader::setUniformi (int location, int value1, int value2, int value3, int value4) const
-{
+inline void Shader::setUniformi(int location, int value1, int value2, int value3, int value4) const {
 	_ctx->ctx_glUniform4i(location, value1, value2, value3, value4);
 	checkError();
 }
 
-inline void Shader::setUniformf (const std::string& name, float value) const
-{
+inline void Shader::setUniformf(const std::string& name, float value) const {
 	const int location = getUniformLocation(name);
 	setUniformf(location, value);
 }
 
-inline void Shader::setUniformf (int location, float value) const
-{
+inline void Shader::setUniformf(int location, float value) const {
 	_ctx->ctx_glUniform1f(location, value);
 	checkError();
 }
 
-inline void Shader::setUniformf (const std::string& name, float value1, float value2) const
-{
+inline void Shader::setUniformf(const std::string& name, float value1, float value2) const {
 	const int location = getUniformLocation(name);
 	setUniformf(location, value1, value2);
 }
 
-inline void Shader::setUniformf (int location, float value1, float value2) const
-{
+inline void Shader::setUniformf(int location, float value1, float value2) const {
 	_ctx->ctx_glUniform2f(location, value1, value2);
 	checkError();
 }
 
-inline void Shader::setUniformf (const std::string& name, float value1, float value2, float value3) const
-{
+inline void Shader::setUniformf(const std::string& name, float value1, float value2, float value3) const {
 	const int location = getUniformLocation(name);
 	setUniformf(location, value1, value2, value3);
 }
 
-inline void Shader::setUniformf (int location, float value1, float value2, float value3) const
-{
+inline void Shader::setUniformf(int location, float value1, float value2, float value3) const {
 	_ctx->ctx_glUniform3f(location, value1, value2, value3);
 	checkError();
 }
 
-inline void Shader::setUniformf (const std::string& name, float value1, float value2, float value3, float value4) const
-{
+inline void Shader::setUniformf(const std::string& name, float value1, float value2, float value3, float value4) const {
 	const int location = getUniformLocation(name);
 	setUniformf(location, value1, value2, value3, value4);
 }
 
-inline void Shader::setUniformf (int location, float value1, float value2, float value3, float value4) const
-{
+inline void Shader::setUniformf(int location, float value1, float value2, float value3, float value4) const {
 	_ctx->ctx_glUniform4f(location, value1, value2, value3, value4);
 	checkError();
 }
 
-inline void Shader::setUniform1fv (const std::string& name, float* values, int offset, int length) const
-{
+inline void Shader::setUniform1fv(const std::string& name, float* values, int offset, int length) const {
 	const int location = getUniformLocation(name);
 	setUniform1fv(location, values, offset, length);
 }
 
-inline void Shader::setUniform1fv (int location, float* values, int offset, int length) const
-{
+inline void Shader::setUniform1fv(int location, float* values, int offset, int length) const {
 	_ctx->ctx_glUniform1fv(location, length, values);
 	checkError();
 }
 
-inline void Shader::setUniform2fv (const std::string& name, float* values, int offset, int length) const
-{
+inline void Shader::setUniform2fv(const std::string& name, float* values, int offset, int length) const {
 	const int location = getUniformLocation(name);
 	setUniform2fv(location, values, offset, length);
 }
 
-inline void Shader::setUniform2fv (int location, float* values, int offset, int length) const
-{
+inline void Shader::setUniform2fv(int location, float* values, int offset, int length) const {
 	_ctx->ctx_glUniform2fv(location, length / 2, values);
 	checkError();
 }
 
-inline void Shader::setUniform3fv (const std::string& name, float* values, int offset, int length) const
-{
+inline void Shader::setUniform3fv(const std::string& name, float* values, int offset, int length) const {
 	const int location = getUniformLocation(name);
 	setUniform3fv(location, values, offset, length);
 }
 
-inline void Shader::setUniform3fv (int location, float* values, int offset, int length) const
-{
+inline void Shader::setUniform3fv(int location, float* values, int offset, int length) const {
 	_ctx->ctx_glUniform3fv(location, length / 3, values);
 	checkError();
 }
 
-inline void Shader::setUniform4fv (const std::string& name, float* values, int offset, int length) const
-{
+inline void Shader::setUniform4fv(const std::string& name, float* values, int offset, int length) const {
 	int location = getUniformLocation(name);
 	setUniform4fv(location, values, offset, length);
 }
 
-inline void Shader::setUniform4fv (int location, float* values, int offset, int length) const
-{
+inline void Shader::setUniform4fv(int location, float* values, int offset, int length) const {
 	_ctx->ctx_glUniform4fv(location, length / 4, values);
 	checkError();
 }
 
-inline void Shader::setUniformMatrix (const std::string& name, glm::mat4& matrix, bool transpose) const
-{
+inline void Shader::setUniformMatrix(const std::string& name, glm::mat4& matrix, bool transpose) const {
 	const int location = getUniformLocation(name);
 	setUniformMatrix(location, matrix, transpose);
 }
 
-inline void Shader::setUniformMatrix (int location, glm::mat4& matrix, bool transpose) const
-{
+inline void Shader::setUniformMatrix(int location, glm::mat4& matrix, bool transpose) const {
 	_ctx->ctx_glUniformMatrix4fv(location, 1, transpose ? GL_TRUE : GL_FALSE, glm::value_ptr(matrix));
 	checkError();
 }
 
-inline void Shader::setUniformMatrix (const std::string& name, glm::mat3& matrix, bool transpose) const
-{
+inline void Shader::setUniformMatrix(const std::string& name, glm::mat3& matrix, bool transpose) const {
 	const int location = getUniformLocation(name);
 	setUniformMatrix(location, matrix, transpose);
 }
 
-inline void Shader::setUniformMatrix (int location, glm::mat3& matrix, bool transpose) const
-{
+inline void Shader::setUniformMatrix(int location, glm::mat3& matrix, bool transpose) const {
 	_ctx->ctx_glUniformMatrix3fv(location, 1, transpose ? GL_TRUE : GL_FALSE, glm::value_ptr(matrix));
 	checkError();
 }
 
-inline void Shader::setUniformf (const std::string& name, glm::vec2& values) const
-{
+inline void Shader::setUniformf(const std::string& name, glm::vec2& values) const {
 	setUniformf(name, values.x, values.y);
 }
 
-inline void Shader::setUniformf (int location, glm::vec2& values) const
-{
+inline void Shader::setUniformf(int location, glm::vec2& values) const {
 	setUniformf(location, values.x, values.y);
 }
 
-inline void Shader::setUniformf (const std::string& name, glm::vec3& values) const
-{
+inline void Shader::setUniformf(const std::string& name, glm::vec3& values) const {
 	setUniformf(name, values.x, values.y, values.z);
 }
 
-inline void Shader::setUniformf (int location, glm::vec3& values) const
-{
+inline void Shader::setUniformf(int location, glm::vec3& values) const {
 	setUniformf(location, values.x, values.y, values.z);
 }
 
-inline void Shader::setUniformf (const std::string& name, Color values) const
-{
+inline void Shader::setUniformf(const std::string& name, Color values) const {
 	setUniformf(name, values[0], values[1], values[2], values[3]);
 }
 
-inline void Shader::setUniformf (int location, Color values) const
-{
+inline void Shader::setUniformf(int location, Color values) const {
 	setUniformf(location, values[0], values[1], values[2], values[3]);
 }
 
-inline void Shader::setVertexAttribute (const std::string& name, int size, int type, bool normalize, int stride, void* buffer) const
-{
+inline void Shader::setVertexAttribute(const std::string& name, int size, int type, bool normalize, int stride, void* buffer) const {
 	const int location = getAttributeLocation(name);
 	if (location == -1)
 		return;
 	setVertexAttribute(location, size, type, normalize, stride, buffer);
 }
 
-inline void Shader::setVertexAttribute (int location, int size, int type, bool normalize, int stride, void* buffer) const
-{
+inline void Shader::setVertexAttribute(int location, int size, int type, bool normalize, int stride, void* buffer) const {
 	_ctx->ctx_glVertexAttribPointer(location, size, type, normalize, stride, buffer);
 	checkError();
 }
 
-inline void Shader::setAttributef (const std::string& name, float value1, float value2, float value3, float value4) const
-{
+inline void Shader::setAttributef(const std::string& name, float value1, float value2, float value3, float value4) const {
 	const int location = getAttributeLocation(name);
 	_ctx->ctx_glVertexAttrib4f(location, value1, value2, value3, value4);
 	checkError();
 }
 
-inline void Shader::disableVertexAttribute (const std::string& name) const
-{
+inline void Shader::disableVertexAttribute(const std::string& name) const {
 	const int location = getAttributeLocation(name);
 	if (location == -1)
 		return;
 	disableVertexAttribute(location);
 }
 
-inline void Shader::disableVertexAttribute (int location) const
-{
+inline void Shader::disableVertexAttribute(int location) const {
 	_ctx->ctx_glDisableVertexAttribArray(location);
 	checkError();
 }
 
-inline void Shader::enableVertexAttribute (const std::string& name) const
-{
+inline void Shader::enableVertexAttribute(const std::string& name) const {
 	int location = getAttributeLocation(name);
 	if (location == -1)
 		return;
 	enableVertexAttribute(location);
 }
 
-inline void Shader::enableVertexAttribute (int location) const
-{
+inline void Shader::enableVertexAttribute(int location) const {
 	_ctx->ctx_glEnableVertexAttribArray(location);
 	checkError();
 }
 
-inline bool Shader::hasAttribute (const std::string& name) const
-{
+inline bool Shader::hasAttribute(const std::string& name) const {
 	return _attributes.find(name) != _attributes.end();
 }
 
-inline bool Shader::hasUniform (const std::string& name) const
-{
+inline bool Shader::hasUniform(const std::string& name) const {
 	return _uniforms.find(name) != _uniforms.end();
 }
 
@@ -764,12 +720,12 @@ class ShaderScope {
 private:
 	const Shader& _shader;
 public:
-	ShaderScope (const Shader& shader) :
+	ShaderScope(const Shader& shader) :
 			_shader(shader) {
 		_shader.activate();
 	}
 
-	virtual ~ShaderScope () {
+	virtual ~ShaderScope() {
 		_shader.deactivate();
 	}
 };
