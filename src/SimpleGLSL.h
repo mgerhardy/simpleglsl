@@ -11,6 +11,8 @@
 #error "No GL header included before including this header"
 #endif
 
+namespace glsl {
+
 #ifndef VERTEX_POSTFIX
 #define VERTEX_POSTFIX "_vs.glsl"
 #endif
@@ -20,9 +22,7 @@
 
 #define MAX_SHADER_VAR_NAME 128
 
-namespace simpleglsl {
-
-class OpenGLStateHandlerCheckError {
+class CheckErrorState {
 protected:
 	const char* _file;
 	const int _line;
@@ -49,11 +49,11 @@ protected:
 	}
 
 public:
-	OpenGLStateHandlerCheckError(const char *file, int line, const char *function) :
+	CheckErrorState(const char *file, int line, const char *function) :
 		_file(file), _line(line), _function(function) {
 	}
 
-	~OpenGLStateHandlerCheckError() {
+	~CheckErrorState() {
 		for (;;) {
 			const GLenum glError = glGetError();
 			if (glError == GL_NO_ERROR)
@@ -65,7 +65,7 @@ public:
 };
 
 #ifdef _DEBUG
-#define checkError() do {OpenGLStateHandlerCheckError(__FILE__, __LINE__, __PRETTY_FUNCTION__);} while(0)
+#define checkError() do {CheckErrorState(__FILE__, __LINE__, __PRETTY_FUNCTION__);} while(0)
 #else
 #define checkError()
 #endif
@@ -73,10 +73,10 @@ public:
 /**
  * Extend this class and hand it over to your shaders - should just be a singleton.
  */
-class GLSLContext {
+class Context {
 	friend class Shader;
 public:
-	virtual ~GLSLContext() {
+	virtual ~Context() {
 	}
 
 	/**
@@ -201,7 +201,7 @@ enum ShaderType {
 
 class Shader {
 protected:
-	GLSLContext* _ctx;
+	Context* _ctx;
 	GLuint _shader[SHADER_MAX];
 	GLuint _program;
 	bool _initialized;
@@ -350,7 +350,7 @@ protected:
 		delete[] strInfoLog;
 	}
 public:
-	Shader (GLSLContext* ctx) :
+	Shader (Context* ctx) :
 			_ctx(ctx), _program(0), _initialized(false), _active(false), _time(0) {
 		for (int i = 0; i < SHADER_MAX; ++i) {
 			_shader[i] = 0;
