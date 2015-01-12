@@ -4,7 +4,7 @@
 #include <string>
 #include <cstdint>
 #include <memory>
-#include <map>
+#include <unordered_map>
 #include <glm/glm.hpp>
 
 #ifndef GLenum
@@ -208,7 +208,7 @@ protected:
 	bool _initialized;
 	mutable bool _active;
 
-	typedef std::map<std::string, int> ShaderVariables;
+	typedef std::unordered_map<std::string, int> ShaderVariables;
 	ShaderVariables _uniforms;
 	ShaderVariables _attributes;
 
@@ -365,7 +365,7 @@ public:
 		_ctx->ctx_glDeleteProgram(_program);
 	}
 
-	bool load(const std::string& filename, const std::string& source, ShaderType shaderType) {
+	bool load(const std::string& name, const std::string& source, ShaderType shaderType) {
 		const GLenum glType = shaderType == SHADER_VERTEX ? GL_VERTEX_SHADER : GL_FRAGMENT_SHADER;
 		checkError();
 
@@ -397,7 +397,7 @@ public:
 				break;
 			}
 
-			std::cerr << "compile failure in " << filename << " (type: " << strShaderType << ") shader:" << std::endl << errorLog << std::endl;
+			std::cerr << "compile failure in " << name << " (type: " << strShaderType << ") shader:" << std::endl << errorLog << std::endl;
 			return false;
 		}
 
@@ -415,6 +415,14 @@ public:
 		return load(filename, src, shaderType);
 	}
 
+	/**
+	 * @brief Loads a vertex and fragment shader for the given base filename.
+	 *
+	 * The filename is hand over to your @c Context implementation with the appropriate filename postfixes
+	 *
+	 * @see VERTEX_POSTFIX
+	 * @see FRAGMENT_POSTFIX
+	 */
 	bool loadProgram(const std::string& filename) {
 		const bool vertex = loadFromFile(filename + VERTEX_POSTFIX, SHADER_VERTEX);
 		if (!vertex)
@@ -432,14 +440,27 @@ public:
 		return success;
 	}
 
+	/**
+	 * @brief Returns the raw shader handle
+	 */
 	GLuint getShader(ShaderType shaderType) const {
 		return _shader[shaderType];
 	}
 
+	/**
+	 * @brief Ticks the shader
+	 */
 	virtual void update(uint32_t deltaTime) {
 		_time += deltaTime;
 	}
 
+	/**
+	 * @brief Bind the shader program
+	 *
+	 * @return @c true if is is useable now, @c false if not
+	 *
+	 * @see
+	 */
 	virtual bool activate() const {
 		_ctx->ctx_glUseProgram(_program);
 		checkError();
@@ -487,12 +508,12 @@ public:
 	void setUniformMatrix(int location, glm::mat4& matrix, bool transpose = false) const;
 	void setUniformMatrix(const std::string& name, glm::mat3& matrix, bool transpose = false) const;
 	void setUniformMatrix(int location, glm::mat3& matrix, bool transpose = false) const;
-	void setUniformf(const std::string& name, glm::vec2& values) const;
-	void setUniformf(int location, glm::vec2& values) const;
-	void setUniformf(const std::string& name, glm::vec3& values) const;
-	void setUniformf(int location, glm::vec3& values) const;
-	void setUniformf(const std::string& name, Color values) const;
-	void setUniformf(int location, Color values) const;
+	void setUniformf(const std::string& name, const glm::vec2& values) const;
+	void setUniformf(int location, const glm::vec2& values) const;
+	void setUniformf(const std::string& name, const glm::vec3& values) const;
+	void setUniformf(int location, const glm::vec3& values) const;
+	void setUniformf(const std::string& name, const glm::vec4& values) const;
+	void setUniformf(int location, const glm::vec4& values) const;
 	void setVertexAttribute(const std::string& name, int size, int type, bool normalize, int stride, void* buffer) const;
 	void setVertexAttribute(int location, int size, int type, bool normalize, int stride, void* buffer) const;
 	void setAttributef(const std::string& name, float value1, float value2, float value3, float value4) const;
@@ -644,28 +665,28 @@ inline void Shader::setUniformMatrix(int location, glm::mat3& matrix, bool trans
 	checkError();
 }
 
-inline void Shader::setUniformf(const std::string& name, glm::vec2& values) const {
+inline void Shader::setUniformf(const std::string& name, const glm::vec2& values) const {
 	setUniformf(name, values.x, values.y);
 }
 
-inline void Shader::setUniformf(int location, glm::vec2& values) const {
+inline void Shader::setUniformf(int location, const glm::vec2& values) const {
 	setUniformf(location, values.x, values.y);
 }
 
-inline void Shader::setUniformf(const std::string& name, glm::vec3& values) const {
+inline void Shader::setUniformf(const std::string& name, const glm::vec3& values) const {
 	setUniformf(name, values.x, values.y, values.z);
 }
 
-inline void Shader::setUniformf(int location, glm::vec3& values) const {
+inline void Shader::setUniformf(int location, const glm::vec3& values) const {
 	setUniformf(location, values.x, values.y, values.z);
 }
 
-inline void Shader::setUniformf(const std::string& name, Color values) const {
-	setUniformf(name, values[0], values[1], values[2], values[3]);
+inline void Shader::setUniformf(const std::string& name, const glm::vec4& values) const {
+	setUniformf(name, values.x, values.y, values.z, values.w);
 }
 
-inline void Shader::setUniformf(int location, Color values) const {
-	setUniformf(location, values[0], values[1], values[2], values[3]);
+inline void Shader::setUniformf(int location, const glm::vec4& values) const {
+	setUniformf(location, values.x, values.y, values.z, values.w);
 }
 
 inline void Shader::setVertexAttribute(const std::string& name, int size, int type, bool normalize, int stride, void* buffer) const {
